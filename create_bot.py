@@ -8,7 +8,7 @@ TOKEN = '5835174677:AAHYiuY8ElaECg7iOtVJePH1rM_-INSZ0qg'
 
 
 async def on_startup(_):
-    create_table('users', 'data/users.db', score=True)
+    create_table('users', 'data/users.db')
     create_table('admin', 'data/admin.db')
     print('The bot was included.')
 

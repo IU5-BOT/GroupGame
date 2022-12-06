@@ -7,8 +7,10 @@ import aiogram.utils.markdown as md
 from create_bot import dp
 from aiogram.types import ReplyKeyboardMarkup
 from keyboard.reply_buttons import roles_for_user_button
+from keyboard.inline_buttons import button_stop_inline
 from data.questions import get_random_questions_lst
 from data.managment_db import *
+from create_bot import bot
 import time
 
 # bd = SQL('users', 'data/users.bd', score=True)
@@ -17,7 +19,9 @@ import time
 ADMIN_CREATED: bool = False
 ADMIN_FINISH_REPLY: bool = False
 ADMIN_ID: int = -1
+ADMIN_RES: list = []
 QUESTIONS = get_random_questions_lst()
+WINNER = (-1, -1, '')
 
 
 class FSMUsers(StatesGroup):
@@ -67,7 +71,7 @@ async def catch_user_role(message: types.Message, state: FSMContext):
             'Главный игрок ещё не закончил отвечать на вопросы. Ждите, когда он закончит или появится!')
         # st = time.time()
         while not ADMIN_FINISH_REPLY:
-            await asyncio.sleep(5)
+            await asyncio.sleep(3)
             # ed = time.time()
             # msg = await message.answer(f'Прошла {ed - st} минута. Главный игрок ещё не закончил / или его ещё нет.')
             # await msg.delete()
@@ -121,28 +125,48 @@ async def catch_question3(message: types.Message, state: FSMContext):
         # Добавляем ответ в таблицу SQL.
         if message.chat.id == ADMIN_ID:
             add_answer(message.chat.id, answer, 3, 'admin', 'data/admin.db')
-            global ADMIN_FINISH_REPLY
+            global ADMIN_FINISH_REPLY, ADMIN_RES
             ADMIN_FINISH_REPLY = True
+            ADMIN_RES = get_score(message.chat.id, 'admin', 'data/admin.db')[0][2:]
+
             await state.finish()
             await message.answer(
-                'Вопросы закончились. Сейчас будут отвечать второстепенные игроки.\n‼️Игра закончится, когда вы напишете "/stop"')
+                'Вопросы закончились. Сейчас будут отвечать второстепенные игроки.\n‼️Игра закончится, когда вы напишете "/stop"',
+                reply_markup=types.ReplyKeyboardRemove())
+
         else:
             add_answer(message.chat.id, answer, 3, 'users', 'data/users.db')
-            
+            user = get_score(message.chat.id, 'users', 'data/users.db')[0][2:]
+
+            try:
+                res_score = sum(1 for i in range(len(user)) if ADMIN_RES[i] == user[i])
+            except:
+                print(' > ERROR')
+                res_score = 0
+            await message.answer(f'Супер, вы набрали {res_score}')
+            global WINNER
+            if res_score > WINNER[0]:
+                WINNER = (res_score, message.chat.id, message.chat.first_name)
+            await state.finish()
 
 
+async def all_msg_handler(message: types.Message):
+    button_text = message.text
+    if button_text == '/stop':
+        res = get_all_users('data/users.db')
+        for el in res:
+            await bot.send_message(el[0], f"Игра закончена! Победил - {WINNER[2]}. Совпало ответов: {WINNER[0]}",
+                                   reply_markup=types.ReplyKeyboardRemove())
+        await message.answer(f"Игра закончена! Победил - {WINNER[2]}. Совпало ответов: {WINNER[0]}",
+                             reply_markup=types.ReplyKeyboardRemove())
 
-# @dp.callback_query_handler(text=['main_person', 'minor_player'])
+
+# @dp.callback_query_handler(text=['stop'])
 # async def inline_kb_answer_callback_handler(query: types.CallbackQuery):
 #     answer_data = query.data
 #
-#     if answer_data == 'main_person':
-#         text = 'В разработке!'
-#         await query.message.answer(text)
-#
-#     elif answer_data == 'minor_player':
-#         text = 'В разработке!'
-#         await query.message.answer(text)
+#     if answer_data == 'stop':
+#         await query.message.answer('Работает!')
 #
 #     else:
 #         text = f'Unexpected callback data {answer_data!r}!'
@@ -155,5 +179,4 @@ def register_handlers(dp_main: Dispatcher):
     dp_main.register_message_handler(catch_question1, state=FSMUsers.question1)
     dp_main.register_message_handler(catch_question2, state=FSMUsers.question2)
     dp_main.register_message_handler(catch_question3, state=FSMUsers.question3)
-    # dp_main.register_message_handler(catch_photo, content_types=['photo'], state=FSMUsers.photo)
-    # dp_main.register_message_handler(all_msg_handler)
+    dp_main.register_message_handler(all_msg_handler)
