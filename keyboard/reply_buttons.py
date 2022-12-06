@@ -9,7 +9,7 @@ from aiogram.types import ReplyKeyboardMarkup
 #     return (el[1] for el in get_all_users('data/users.db'))
 
 
-roles_for_user_button = ReplyKeyboardMarkup(resize_keyboard=True)
+roles_for_user_button = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
 buttons = ('🥇Главный игрок',
            '🥈Второстепенный')
 roles_for_user_button.row(*buttons)

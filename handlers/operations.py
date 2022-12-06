@@ -5,7 +5,6 @@ from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.dispatcher import FSMContext
 import aiogram.utils.markdown as md
 from create_bot import dp
-# from data.managment_db import SQL
 from aiogram.types import ReplyKeyboardMarkup
 from keyboard.reply_buttons import roles_for_user_button
 from data.questions import get_random_questions_lst
@@ -29,7 +28,15 @@ class FSMUsers(StatesGroup):
 
 
 async def handler_start(message: types.Message):
+    create_user_data(message.chat.id, message.chat.first_name, 'users', 'data/users.db', score=True)
     await message.answer('Привет, это жёская игра!')
+    while get_count_users('data/users.db') != 0:
+        res = get_count_users('data/users.db')
+        await asyncio.sleep(5)
+        if res > 2:
+            await message.answer(f'Обнаружено {res} чел.')
+            break
+
     await FSMUsers.user_role.set()
     await message.answer("Выберите роль:", reply_markup=roles_for_user_button)
 
@@ -41,17 +48,16 @@ async def catch_user_role(message: types.Message, state: FSMContext):
         if message.text == '🥇Главный игрок' and not ADMIN_CREATED:
             ADMIN_CREATED = True
             ADMIN_ID = message.chat.id
-            # user_id: int, user_name: str, filename: str, path: str, score: bool = False
+            delete_person(message.chat.id, 'data/users.db')
             create_user_data(message.chat.id, message.chat.first_name, 'admin', 'data/admin.db')
             await message.answer('Вы главный игрок!')
 
         elif message.text == '🥇Главный игрок' and ADMIN_CREATED:
-            create_user_data(message.chat.id, message.chat.first_name, 'users', 'data/users.db', score=True)
             await message.answer('Главный игрок уже есть. Вы второстепенный!')
 
         else:
-            create_user_data(message.chat.id, message.chat.first_name, 'users','data/users.db', score=True)
             await message.answer('Вы второстепенный игрок!')
+
     users_reply_buttons = ReplyKeyboardMarkup(resize_keyboard=True)
     buttons = (el[1] for el in get_all_users('data/users.db'))
     users_reply_buttons.row(*buttons)
@@ -59,14 +65,13 @@ async def catch_user_role(message: types.Message, state: FSMContext):
     if message.chat.id != ADMIN_ID and not ADMIN_FINISH_REPLY:
         await message.answer(
             'Главный игрок ещё не закончил отвечать на вопросы. Ждите, когда он закончит или появится!')
-        st = time.time()
-        await asyncio.sleep(60)
+        # st = time.time()
         while not ADMIN_FINISH_REPLY:
-            ed = time.time()
-            msg = await message.answer(f'Прошла {ed - st} минута. Главный игрок ещё не закончил / или его ещё нет.')
-            await asyncio.sleep(60)
-            await msg.delete()
-
+            await asyncio.sleep(5)
+            # ed = time.time()
+            # msg = await message.answer(f'Прошла {ed - st} минута. Главный игрок ещё не закончил / или его ещё нет.')
+            # await msg.delete()
+        await message.answer('Главный игрок закончил отвечать на вопросы. Ваш черёд!')
 
     await FSMUsers.next()
     await message.answer(QUESTIONS[0], reply_markup=users_reply_buttons)
@@ -107,6 +112,7 @@ async def catch_question2(message: types.Message, state: FSMContext):
     users_reply_buttons.row(*buttons)
     await message.answer(QUESTIONS[2], reply_markup=users_reply_buttons)
 
+
 async def catch_question3(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         answer = message.text
@@ -115,14 +121,15 @@ async def catch_question3(message: types.Message, state: FSMContext):
         # Добавляем ответ в таблицу SQL.
         if message.chat.id == ADMIN_ID:
             add_answer(message.chat.id, answer, 3, 'admin', 'data/admin.db')
+            global ADMIN_FINISH_REPLY
+            ADMIN_FINISH_REPLY = True
+            await state.finish()
+            await message.answer(
+                'Вопросы закончились. Сейчас будут отвечать второстепенные игроки.\n‼️Игра закончится, когда вы напишете "/stop"')
         else:
             add_answer(message.chat.id, answer, 3, 'users', 'data/users.db')
+            
 
-    await FSMUsers.next()
-    users_reply_buttons = ReplyKeyboardMarkup(resize_keyboard=True)
-    buttons = (el[1] for el in get_all_users('data/users.db'))
-    users_reply_buttons.row(*buttons)
-    await message.answer(QUESTIONS[2], reply_markup=users_reply_buttons)
 
 
 # @dp.callback_query_handler(text=['main_person', 'minor_player'])

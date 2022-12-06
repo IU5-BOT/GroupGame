@@ -126,7 +126,7 @@ import sqlite3
 # if __name__ == '__main__':
 #     create_table('users', '../data/users.db', score=True)
 #     create_table('admin', '../data/admin.db')
-def get_all_users(path: str, filename: str = 'users') -> list:
+def get_all_users(path: str,filename: str = 'users') -> list:
     """ Возращает id, имя"""
     try:
         db = sqlite3.connect(path)
@@ -262,7 +262,28 @@ def find_index_of_name(name: str, path: str):
     return res
 
 
+def delete_person(user_id, path: str, filename: str = 'users'):
+    db = sqlite3.connect(path)
+    cursor = db.cursor()
+    table = filename
+    cursor.execute(f"DELETE FROM {table} WHERE id_user = {user_id}")
+    db.commit()
+    db.close()
+
+
+def get_count_users(path: str, filename: str = 'users'):
+    db = sqlite3.connect(path)
+    cursor = db.cursor()
+    table = filename
+    cursor.execute(f"SELECT rowid, name FROM {table}")
+    length = len(cursor.fetchall())
+    db.commit()
+    db.close()
+    return length
+
+
 if __name__ == '__main__':
     create_table('data', 'data.db')
     create_user_data(0, 'Dima', 'data', 'data.db')
-    print(find_index_of_name('Dima', 'data.db'))
+    get_count_users('data.db', 'data')
+    # delete_person(0, 'data.db', 'data')
