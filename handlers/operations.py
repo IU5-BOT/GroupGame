@@ -47,15 +47,12 @@ async def handler_start(message: types.Message):
     create_user_data(message.chat.id, message.chat.first_name, 'users', 'data/users.db')
     text = """Привет! Этот игра на знание друг друга. Вам требуется выбрать свою роль и следовать указаниям кнопок. 
 ‼️Возможны случаи, когда пару секунд бот не будет ничего отвечать, по причине сна. Просьба ничего не нажимать и строго следовать кнопкам"""
-    # with open('data/photo.jpg', 'rb') as photo:
-        # await message.answer(text)
     await message.answer_photo(
         photo=open('data/photo.jpg', 'rb'),
         caption=md.text(
             md.text(text)
         )
     )
-    # await bot.send_photo(message.chat.id, photo=photo)
     count_now = get_count_users('data/users.db')
     if count_now < 3:
         await message.answer('Игра начнётся, когда будет минимум 3 игрока! Ждите')
@@ -490,6 +487,8 @@ async def all_msg_handler(message: types.Message):
                                    reply_markup=types.ReplyKeyboardRemove())
         await message.answer(f"Игра закончена! Победил - {WINNER[2]}. Совпало ответов: {WINNER[0]}",
                              reply_markup=types.ReplyKeyboardRemove())
+
+    #TODO: добавить повтор через старт
 
 
 # @dp.callback_query_handler(text=['stop'])

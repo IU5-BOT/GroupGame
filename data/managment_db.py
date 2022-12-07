@@ -70,15 +70,20 @@ def create_table(file_name: str, path: str):
 def create_user_data(user_id: int, user_name: str, filename: str, path: str):
     db = sqlite3.connect(path)
     cursor = db.cursor()
-    cursor.execute(
-        "INSERT INTO {} VALUES ({}, '{}', Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null)".format(
-            filename, user_id, user_name)
-    )
+    if isUser(user_id, path):
+        db.commit()
+        db.close()
+        return
+    else:
+        cursor.execute(
+            "INSERT INTO {} VALUES ({}, '{}', Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null)".format(
+                filename, user_id, user_name)
+        )
 
-    # cursor.execute(f"INSERT INTO {filename} VALUES ({user_id}, '{user_name}', Null, Null, Null)")
+        # cursor.execute(f"INSERT INTO {filename} VALUES ({user_id}, '{user_name}', Null, Null, Null)")
 
-    db.commit()
-    db.close()
+        db.commit()
+        db.close()
 
 
 def add_answer(user_id: int, answer_user: str, counter_questions: int, filename: str, path: str):
@@ -91,6 +96,20 @@ def add_answer(user_id: int, answer_user: str, counter_questions: int, filename:
         print(' >> ERROR')
     db.commit()
     db.close()
+
+
+def isUser(user_id: str, path: str) -> bool:
+    db = sqlite3.connect(path)
+    cursor = db.cursor()
+    table = 'users'
+    try:
+        cursor.execute(f"SELECT id_user FROM {table} WHERE id_user = '{user_id}'")
+    except:
+        print(' >> ERROR')
+    res = cursor.fetchall()
+    db.commit()
+    db.close()
+    return True if len(res) != 0 else False
 
 
 def find_index_of_name(name: str, path: str):

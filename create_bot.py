@@ -15,8 +15,11 @@ async def on_startup(_):
 
 async def on_shutdown(dp):
     print('Удаляю базу данных')
-    os.remove("data/admin.db")
-    os.remove("data/users.db")
+    try:
+        os.remove("data/admin.db")
+        os.remove("data/users.db")
+    except:
+        print('У вас проблемы с подключением телеграмом.')
     await bot.close()
     await storage.close()
 
