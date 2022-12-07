@@ -45,12 +45,25 @@ class FSMUsers(StatesGroup):
 
 async def handler_start(message: types.Message):
     create_user_data(message.chat.id, message.chat.first_name, 'users', 'data/users.db')
-    await message.answer('Привет, это жёская игра!')
-    while get_count_users('data/users.db') != 0:
-        res = get_count_users('data/users.db')
+    text = """Привет! Этот игра на знание друг друга. Вам требуется выбрать свою роль и следовать указаниям кнопок. 
+‼️Возможны случаи, когда пару секунд бот не будет ничего отвечать, по причине сна. Просьба ничего не нажимать и строго следовать кнопкам"""
+    # with open('data/photo.jpg', 'rb') as photo:
+        # await message.answer(text)
+    await message.answer_photo(
+        photo=open('data/photo.jpg', 'rb'),
+        caption=md.text(
+            md.text(text)
+        )
+    )
+    # await bot.send_photo(message.chat.id, photo=photo)
+    count_now = get_count_users('data/users.db')
+    if count_now < 3:
+        await message.answer('Игра начнётся, когда будет минимум 3 игрока! Ждите')
+    while count_now < 2:
+        count_now = get_count_users('data/users.db')
         await asyncio.sleep(5)
-        if res > 2:
-            await message.answer(f'Обнаружено {res} чел.')
+        if count_now > 2:
+            await message.answer(f'Обнаружено {count_now} чел.')
             break
 
     await FSMUsers.user_role.set()
