@@ -1,7 +1,7 @@
 # Copyright © 2022 mightyK1ngRichard <dimapermyakov55@gmail.com>
 import sqlite3
 
-print()
+
 def get_all_users(path: str, filename: str = 'users') -> list:
     """ Возращает id, имя"""
     try:
@@ -24,11 +24,34 @@ def create_table(file_name: str, path: str):
         cursor = db.cursor()
         try:
             cursor.execute("CREATE TABLE" + f" {file_name} " + """(
-                                id_user integer,
-                                name text,
-                                q1 integer,
-                                q2 integer,
-                                q3 integer)""")
+                                    id_user integer,
+                                    name text,
+                                    q1 integer,
+                                    q2 integer,
+                                    q3 integer,
+                                    q4 integer,
+                                    q5 integer,
+                                    q6 integer,
+                                    q7 integer,
+                                    q8 integer,
+                                    q9 integer,
+                                    q10 integer,
+                                    q11 integer,
+                                    q12 integer,
+                                    q13 integer,
+                                    q14 integer,
+                                    q15 integer,
+                                    q16 integer,
+                                    q17 integer,
+                                    q18 integer,
+                                    q19 integer,
+                                    q20 integer)""")
+            # cursor.execute("CREATE TABLE" + f" {file_name} " + """(
+            #                     id_user integer,
+            #                     name text,
+            #                     q1 integer,
+            #                     q2 integer,
+            #                     q3 integer)""")
             print(f'  > Таблица {file_name} создана!')
 
         except sqlite3.OperationalError:
@@ -44,23 +67,16 @@ def create_table(file_name: str, path: str):
         print(' > Таблица не найдена! Гг.')
 
 
-def create_user_data(user_id: int, user_name: str, filename: str, path: str, score: bool = False):
+def create_user_data(user_id: int, user_name: str, filename: str, path: str):
     db = sqlite3.connect(path)
     cursor = db.cursor()
-    # TODO: Расскомментировать потом.
-    '''cursor.execute(
-        "INSERT INTO {} VALUES ({}, '{}', {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})".format(
-            self.filename, user_id, user_name,
-            args[0], args[1], args[2], args[3], args[4], args[5],
-            args[6], args[7], args[8], args[9], args[10], args[11],
-            args[12], args[13], args[14], args[15], args[16],
-            args[17], args[18], args[19])
-    )'''
-    if score:
-        cursor.execute(f"INSERT INTO {filename} VALUES ({user_id}, '{user_name}', Null, Null, Null)")
+    cursor.execute(
+        "INSERT INTO {} VALUES ({}, '{}', Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null)".format(
+            filename, user_id, user_name)
+    )
 
-    else:
-        cursor.execute(f"INSERT INTO {filename} VALUES ({user_id}, '{user_name}', Null, Null, Null)")
+    # cursor.execute(f"INSERT INTO {filename} VALUES ({user_id}, '{user_name}', Null, Null, Null)")
+
     db.commit()
     db.close()
 
