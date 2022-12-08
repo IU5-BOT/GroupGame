@@ -3,7 +3,7 @@ import asyncio
 from aiogram import Dispatcher, types
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.dispatcher import FSMContext
-from aiogram.types import ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove
 from keyboard.reply_buttons import roles_for_user_button
 from data.questions import get_random_questions_lst
 from data.managment_db import *
@@ -55,22 +55,27 @@ async def handler_start(message: types.Message):
             md.text(text)
         )
     )
-    count_now = get_count_users('data/users.db')
-    if count_now < 3:
-        markup = InlineKeyboardMarkup()
-        markup.add(InlineKeyboardButton(text="Так что пока почилльте тут:",
-                                        web_app=WebAppInfo(url="https://www.youtube.com/watch?v=H2V-RYIP0Vk")))
-        await message.answer('Игра начнётся, когда будет минимум 3 игрока! Ждите', reply_markup=markup)
-
-    while True:
+    if len(ADMIN_RES) == 0:
         count_now = get_count_users('data/users.db')
-        await asyncio.sleep(5)
-        if count_now > 2:
-            await message.answer(f'Обнаружено {count_now} чел.')
-            break
+        if count_now < 3:
+            markup = InlineKeyboardMarkup()
+            markup.add(InlineKeyboardButton(text="Так что пока почилльте тут:",
+                                            web_app=WebAppInfo(url="https://www.youtube.com/watch?v=H2V-RYIP0Vk")))
+            await message.answer('Игра начнётся, когда будет минимум 3 игрока! Ждите', reply_markup=markup)
 
-    await FSMUsers.user_role.set()
-    await message.answer("Выберите роль:", reply_markup=roles_for_user_button)
+        while True:
+            count_now = get_count_users('data/users.db')
+            await asyncio.sleep(5)
+            if count_now > 2:
+                await message.answer(f'Обнаружено {count_now} чел.')
+                break
+
+        await FSMUsers.user_role.set()
+        await message.answer("Выберите роль:", reply_markup=roles_for_user_button)
+
+    else:
+        # Если игра уже началась и главный закончил отвечать.
+        await message.answer('Игра уже началась!')
 
 
 async def catch_user_role(message: types.Message, state: FSMContext):
@@ -83,16 +88,16 @@ async def catch_user_role(message: types.Message, state: FSMContext):
                 ADMIN_ID = message.chat.id
                 delete_person(message.chat.id, 'data/users.db')
                 create_user_data(message.chat.id, message.chat.first_name, 'admin', 'data/admin.db')
-                await message.answer('Вы главный игрок!')
+                await message.answer('Вы главный игрок!', reply_markup=ReplyKeyboardRemove())
                 global users_reply_buttons, BUTTONS
                 BUTTONS = list((el[1] for el in get_all_users('data/users.db')))
                 users_reply_buttons.row(*BUTTONS)
 
             elif message.text == '🥇Главный игрок' and ADMIN_CREATED:
-                await message.answer('Главный игрок уже есть. Вы второстепенный!')
+                await message.answer('Главный игрок уже есть. Вы второстепенный!', reply_markup=ReplyKeyboardRemove())
 
             else:
-                await message.answer('Вы второстепенный игрок!')
+                await message.answer('Вы второстепенный игрок!', reply_markup=ReplyKeyboardRemove())
 
         # users_reply_buttons = ReplyKeyboardMarkup(resize_keyboard=True)
         # buttons = (el[1] for el in get_all_users('data/users.db'))
@@ -424,6 +429,7 @@ async def catch_question17(message: types.Message, state: FSMContext):
 
     else:
         await message.reply('Следуйте, пожалуйста, кнопкам. Я их писал не от скуки.')
+
 
 async def catch_question18(message: types.Message, state: FSMContext):
     if message.text in BUTTONS:
