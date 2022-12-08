@@ -3,11 +3,12 @@ import asyncio
 from aiogram import Dispatcher, types
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.dispatcher import FSMContext
-from aiogram.types import ReplyKeyboardMarkup
+from aiogram.types import ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
 from keyboard.reply_buttons import roles_for_user_button
 from data.questions import get_random_questions_lst
 from data.managment_db import *
 from create_bot import bot
+from aiogram.types import WebAppInfo
 import aiogram.utils.markdown as md
 import time
 
@@ -54,9 +55,14 @@ async def handler_start(message: types.Message):
         )
     )
     count_now = get_count_users('data/users.db')
+    msg = None
     if count_now < 3:
-        await message.answer('Игра начнётся, когда будет минимум 3 игрока! Ждите')
-    while count_now < 2:
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton(text="Так что пока почилльте тут:",
+                                        web_app=WebAppInfo(url="https://www.youtube.com/watch?v=H2V-RYIP0Vk")))
+        await message.answer('Игра начнётся, когда будет минимум 3 игрока! Ждите', reply_markup=markup)
+
+    while True:
         count_now = get_count_users('data/users.db')
         await asyncio.sleep(5)
         if count_now > 2:
@@ -488,7 +494,7 @@ async def all_msg_handler(message: types.Message):
         await message.answer(f"Игра закончена! Победил - {WINNER[2]}. Совпало ответов: {WINNER[0]}",
                              reply_markup=types.ReplyKeyboardRemove())
 
-    #TODO: добавить повтор через старт
+    # TODO: добавить повтор через старт
 
 
 # @dp.callback_query_handler(text=['stop'])

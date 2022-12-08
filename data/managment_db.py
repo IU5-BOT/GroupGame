@@ -98,12 +98,12 @@ def add_answer(user_id: int, answer_user: str, counter_questions: int, filename:
     db.close()
 
 
-def isUser(user_id: str, path: str) -> bool:
+def isUser(user_id: int, path: str) -> bool:
     db = sqlite3.connect(path)
     cursor = db.cursor()
     table = 'users'
     try:
-        cursor.execute(f"SELECT id_user FROM {table} WHERE id_user = '{user_id}'")
+        cursor.execute(f"SELECT id_user FROM {table} WHERE id_user = {user_id}")
     except:
         print(' >> ERROR')
     res = cursor.fetchall()
