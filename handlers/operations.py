@@ -10,7 +10,6 @@ from data.managment_db import *
 from create_bot import bot
 from aiogram.types import WebAppInfo
 import aiogram.utils.markdown as md
-import time
 
 ADMIN_CREATED: bool = False
 ADMIN_FINISH_REPLY: bool = False
@@ -18,6 +17,8 @@ ADMIN_ID: int = -1
 ADMIN_RES: list = []
 QUESTIONS = get_random_questions_lst()
 WINNER = (-1, -1, '')
+users_reply_buttons = ReplyKeyboardMarkup(resize_keyboard=True)
+BUTTONS = ()
 
 
 class FSMUsers(StatesGroup):
@@ -55,7 +56,6 @@ async def handler_start(message: types.Message):
         )
     )
     count_now = get_count_users('data/users.db')
-    msg = None
     if count_now < 3:
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton(text="Так что пока почилльте тут:",
@@ -74,414 +74,428 @@ async def handler_start(message: types.Message):
 
 
 async def catch_user_role(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        data['question1'] = message.text
-        global ADMIN_CREATED, ADMIN_ID
-        if message.text == '🥇Главный игрок' and not ADMIN_CREATED:
-            ADMIN_CREATED = True
-            ADMIN_ID = message.chat.id
-            delete_person(message.chat.id, 'data/users.db')
-            create_user_data(message.chat.id, message.chat.first_name, 'admin', 'data/admin.db')
-            await message.answer('Вы главный игрок!')
+    if message.text in ['🥇Главный игрок', '🥈Второстепенный']:
+        async with state.proxy() as data:
+            data['question1'] = message.text
+            global ADMIN_CREATED, ADMIN_ID
+            if message.text == '🥇Главный игрок' and not ADMIN_CREATED:
+                ADMIN_CREATED = True
+                ADMIN_ID = message.chat.id
+                delete_person(message.chat.id, 'data/users.db')
+                create_user_data(message.chat.id, message.chat.first_name, 'admin', 'data/admin.db')
+                await message.answer('Вы главный игрок!')
+                global users_reply_buttons, BUTTONS
+                BUTTONS = list((el[1] for el in get_all_users('data/users.db')))
+                users_reply_buttons.row(*BUTTONS)
 
-        elif message.text == '🥇Главный игрок' and ADMIN_CREATED:
-            await message.answer('Главный игрок уже есть. Вы второстепенный!')
+            elif message.text == '🥇Главный игрок' and ADMIN_CREATED:
+                await message.answer('Главный игрок уже есть. Вы второстепенный!')
 
-        else:
-            await message.answer('Вы второстепенный игрок!')
+            else:
+                await message.answer('Вы второстепенный игрок!')
 
-    users_reply_buttons = ReplyKeyboardMarkup(resize_keyboard=True)
-    buttons = (el[1] for el in get_all_users('data/users.db'))
-    users_reply_buttons.row(*buttons)
+        # users_reply_buttons = ReplyKeyboardMarkup(resize_keyboard=True)
+        # buttons = (el[1] for el in get_all_users('data/users.db'))
+        # users_reply_buttons.row(*BUTTONS)
 
-    if message.chat.id != ADMIN_ID and not ADMIN_FINISH_REPLY:
-        await message.answer(
-            'Главный игрок ещё не закончил отвечать на вопросы. Ждите, когда он закончит или появится!')
-        # st = time.time()
-        while not ADMIN_FINISH_REPLY:
-            await asyncio.sleep(3)
-            # ed = time.time()
-            # msg = await message.answer(f'Прошла {ed - st} минута. Главный игрок ещё не закончил / или его ещё нет.')
-            # await msg.delete()
-        await message.answer('Главный игрок закончил отвечать на вопросы. Ваш черёд!')
+        if message.chat.id != ADMIN_ID and not ADMIN_FINISH_REPLY:
+            await message.answer(
+                'Главный игрок ещё не закончил отвечать на вопросы. Ждите, когда он закончит или появится!')
+            # st = time.time()
+            while not ADMIN_FINISH_REPLY:
+                await asyncio.sleep(3)
 
-    await FSMUsers.next()
-    await message.answer(QUESTIONS[0], reply_markup=users_reply_buttons)
+            await message.answer('Главный игрок закончил отвечать на вопросы. Ваш черёд!')
+
+        await FSMUsers.next()
+        await message.answer(QUESTIONS[0], reply_markup=users_reply_buttons)
+
+    else:
+        await message.reply('Следуйте, пожалуйста, кнопкам. Я их писал не от скуки.')
 
 
 async def catch_question1(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        answer = message.text
-        data['question1'] = answer
-        await message.answer(f'Ваш ответ: {answer}')
-        # Добавляем ответ в таблицу SQL.
-        if message.chat.id == ADMIN_ID:
-            add_answer(message.chat.id, answer, 1, 'admin', 'data/admin.db')
-        else:
-            add_answer(message.chat.id, answer, 1, 'users', 'data/users.db')
+    if message.text in BUTTONS:
+        async with state.proxy() as data:
+            answer = message.text
+            data['question1'] = answer
+            await message.answer(f'Ваш ответ: {answer}')
+            # Добавляем ответ в таблицу SQL.
+            if message.chat.id == ADMIN_ID:
+                add_answer(message.chat.id, answer, 1, 'admin', 'data/admin.db')
+            else:
+                add_answer(message.chat.id, answer, 1, 'users', 'data/users.db')
 
-    await FSMUsers.next()
-    users_reply_buttons = ReplyKeyboardMarkup(resize_keyboard=True)
-    buttons = (el[1] for el in get_all_users('data/users.db'))
-    users_reply_buttons.row(*buttons)
-    await message.answer(QUESTIONS[1], reply_markup=users_reply_buttons)
+        await FSMUsers.next()
+        # users_reply_buttons = ReplyKeyboardMarkup(resize_keyboard=True)
+        # buttons = (el[1] for el in get_all_users('data/users.db'))
+        # users_reply_buttons.row(*BUTTONS)
+        await message.answer(QUESTIONS[1], reply_markup=users_reply_buttons)
+
+    else:
+        await message.reply('Следуйте, пожалуйста, кнопкам. Я их писал не от скуки.')
 
 
 async def catch_question2(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        answer = message.text
-        data['question1'] = answer
-        await message.answer(f'Ваш ответ: {answer}')
-        # Добавляем ответ в таблицу SQL.
-        if message.chat.id == ADMIN_ID:
-            add_answer(message.chat.id, answer, 2, 'admin', 'data/admin.db')
-        else:
-            add_answer(message.chat.id, answer, 2, 'users', 'data/users.db')
+    if message.text in BUTTONS:
+        async with state.proxy() as data:
+            answer = message.text
+            data['question1'] = answer
+            await message.answer(f'Ваш ответ: {answer}')
+            # Добавляем ответ в таблицу SQL.
+            if message.chat.id == ADMIN_ID:
+                add_answer(message.chat.id, answer, 2, 'admin', 'data/admin.db')
+            else:
+                add_answer(message.chat.id, answer, 2, 'users', 'data/users.db')
 
-    await FSMUsers.next()
-    users_reply_buttons = ReplyKeyboardMarkup(resize_keyboard=True)
-    buttons = (el[1] for el in get_all_users('data/users.db'))
-    users_reply_buttons.row(*buttons)
-    await message.answer(QUESTIONS[2], reply_markup=users_reply_buttons)
+        await FSMUsers.next()
+        await message.answer(QUESTIONS[2], reply_markup=users_reply_buttons)
+
+    else:
+        await message.reply('Следуйте, пожалуйста, кнопкам. Я их писал не от скуки.')
 
 
 async def catch_question3(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        answer = message.text
-        data['question1'] = answer
-        await message.answer(f'Ваш ответ: {answer}')
-        # Добавляем ответ в таблицу SQL.
-        if message.chat.id == ADMIN_ID:
-            add_answer(message.chat.id, answer, 3, 'admin', 'data/admin.db')
-        else:
-            add_answer(message.chat.id, answer, 3, 'users', 'data/users.db')
+    if message.text in BUTTONS:
+        async with state.proxy() as data:
+            answer = message.text
+            data['question1'] = answer
+            await message.answer(f'Ваш ответ: {answer}')
+            # Добавляем ответ в таблицу SQL.
+            if message.chat.id == ADMIN_ID:
+                add_answer(message.chat.id, answer, 3, 'admin', 'data/admin.db')
+            else:
+                add_answer(message.chat.id, answer, 3, 'users', 'data/users.db')
 
-    await FSMUsers.next()
-    users_reply_buttons = ReplyKeyboardMarkup(resize_keyboard=True)
-    buttons = (el[1] for el in get_all_users('data/users.db'))
-    users_reply_buttons.row(*buttons)
-    await message.answer(QUESTIONS[3], reply_markup=users_reply_buttons)
+        await FSMUsers.next()
+        await message.answer(QUESTIONS[3], reply_markup=users_reply_buttons)
+
+    else:
+        await message.reply('Следуйте, пожалуйста, кнопкам. Я их писал не от скуки.')
 
 
 async def catch_question4(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        answer = message.text
-        data['question1'] = answer
-        await message.answer(f'Ваш ответ: {answer}')
-        # Добавляем ответ в таблицу SQL.
-        if message.chat.id == ADMIN_ID:
-            add_answer(message.chat.id, answer, 4, 'admin', 'data/admin.db')
-        else:
-            add_answer(message.chat.id, answer, 4, 'users', 'data/users.db')
+    if message.text in BUTTONS:
+        async with state.proxy() as data:
+            answer = message.text
+            data['question1'] = answer
+            await message.answer(f'Ваш ответ: {answer}')
+            # Добавляем ответ в таблицу SQL.
+            if message.chat.id == ADMIN_ID:
+                add_answer(message.chat.id, answer, 4, 'admin', 'data/admin.db')
+            else:
+                add_answer(message.chat.id, answer, 4, 'users', 'data/users.db')
+        await FSMUsers.next()
+        await message.answer(QUESTIONS[4], reply_markup=users_reply_buttons)
 
-    await FSMUsers.next()
-    users_reply_buttons = ReplyKeyboardMarkup(resize_keyboard=True)
-    buttons = (el[1] for el in get_all_users('data/users.db'))
-    users_reply_buttons.row(*buttons)
-    await message.answer(QUESTIONS[4], reply_markup=users_reply_buttons)
+    else:
+        await message.reply('Следуйте, пожалуйста, кнопкам. Я их писал не от скуки.')
 
 
 async def catch_question5(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        answer = message.text
-        data['question1'] = answer
-        await message.answer(f'Ваш ответ: {answer}')
-        # Добавляем ответ в таблицу SQL.
-        if message.chat.id == ADMIN_ID:
-            add_answer(message.chat.id, answer, 5, 'admin', 'data/admin.db')
-        else:
-            add_answer(message.chat.id, answer, 5, 'users', 'data/users.db')
+    if message.text in BUTTONS:
+        async with state.proxy() as data:
+            answer = message.text
+            data['question1'] = answer
+            await message.answer(f'Ваш ответ: {answer}')
+            # Добавляем ответ в таблицу SQL.
+            if message.chat.id == ADMIN_ID:
+                add_answer(message.chat.id, answer, 5, 'admin', 'data/admin.db')
+            else:
+                add_answer(message.chat.id, answer, 5, 'users', 'data/users.db')
+        await FSMUsers.next()
+        await message.answer(QUESTIONS[5], reply_markup=users_reply_buttons)
 
-    await FSMUsers.next()
-    users_reply_buttons = ReplyKeyboardMarkup(resize_keyboard=True)
-    buttons = (el[1] for el in get_all_users('data/users.db'))
-    users_reply_buttons.row(*buttons)
-    await message.answer(QUESTIONS[5], reply_markup=users_reply_buttons)
+    else:
+        await message.reply('Следуйте, пожалуйста, кнопкам. Я их писал не от скуки.')
 
 
 async def catch_question6(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        answer = message.text
-        data['question1'] = answer
-        await message.answer(f'Ваш ответ: {answer}')
-        # Добавляем ответ в таблицу SQL.
-        if message.chat.id == ADMIN_ID:
-            add_answer(message.chat.id, answer, 6, 'admin', 'data/admin.db')
-        else:
-            add_answer(message.chat.id, answer, 6, 'users', 'data/users.db')
+    if message.text in BUTTONS:
+        async with state.proxy() as data:
+            answer = message.text
+            data['question1'] = answer
+            await message.answer(f'Ваш ответ: {answer}')
+            # Добавляем ответ в таблицу SQL.
+            if message.chat.id == ADMIN_ID:
+                add_answer(message.chat.id, answer, 6, 'admin', 'data/admin.db')
+            else:
+                add_answer(message.chat.id, answer, 6, 'users', 'data/users.db')
+        await FSMUsers.next()
+        await message.answer(QUESTIONS[6], reply_markup=users_reply_buttons)
 
-    await FSMUsers.next()
-    users_reply_buttons = ReplyKeyboardMarkup(resize_keyboard=True)
-    buttons = (el[1] for el in get_all_users('data/users.db'))
-    users_reply_buttons.row(*buttons)
-    await message.answer(QUESTIONS[6], reply_markup=users_reply_buttons)
+    else:
+        await message.reply('Следуйте, пожалуйста, кнопкам. Я их писал не от скуки.')
 
 
 async def catch_question7(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        answer = message.text
-        data['question1'] = answer
-        await message.answer(f'Ваш ответ: {answer}')
-        # Добавляем ответ в таблицу SQL.
-        if message.chat.id == ADMIN_ID:
-            add_answer(message.chat.id, answer, 7, 'admin', 'data/admin.db')
-        else:
-            add_answer(message.chat.id, answer, 7, 'users', 'data/users.db')
+    if message.text in BUTTONS:
+        async with state.proxy() as data:
+            answer = message.text
+            data['question1'] = answer
+            await message.answer(f'Ваш ответ: {answer}')
+            # Добавляем ответ в таблицу SQL.
+            if message.chat.id == ADMIN_ID:
+                add_answer(message.chat.id, answer, 7, 'admin', 'data/admin.db')
+            else:
+                add_answer(message.chat.id, answer, 7, 'users', 'data/users.db')
+        await FSMUsers.next()
+        await message.answer(QUESTIONS[7], reply_markup=users_reply_buttons)
 
-    await FSMUsers.next()
-    users_reply_buttons = ReplyKeyboardMarkup(resize_keyboard=True)
-    buttons = (el[1] for el in get_all_users('data/users.db'))
-    users_reply_buttons.row(*buttons)
-    await message.answer(QUESTIONS[7], reply_markup=users_reply_buttons)
+    else:
+        await message.reply('Следуйте, пожалуйста, кнопкам. Я их писал не от скуки.')
 
 
 async def catch_question8(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        answer = message.text
-        data['question1'] = answer
-        await message.answer(f'Ваш ответ: {answer}')
-        # Добавляем ответ в таблицу SQL.
-        if message.chat.id == ADMIN_ID:
-            add_answer(message.chat.id, answer, 8, 'admin', 'data/admin.db')
-        else:
-            add_answer(message.chat.id, answer, 8, 'users', 'data/users.db')
+    if message.text in BUTTONS:
+        async with state.proxy() as data:
+            answer = message.text
+            data['question1'] = answer
+            await message.answer(f'Ваш ответ: {answer}')
+            # Добавляем ответ в таблицу SQL.
+            if message.chat.id == ADMIN_ID:
+                add_answer(message.chat.id, answer, 8, 'admin', 'data/admin.db')
+            else:
+                add_answer(message.chat.id, answer, 8, 'users', 'data/users.db')
+        await FSMUsers.next()
+        await message.answer(QUESTIONS[8], reply_markup=users_reply_buttons)
 
-    await FSMUsers.next()
-    users_reply_buttons = ReplyKeyboardMarkup(resize_keyboard=True)
-    buttons = (el[1] for el in get_all_users('data/users.db'))
-    users_reply_buttons.row(*buttons)
-    await message.answer(QUESTIONS[8], reply_markup=users_reply_buttons)
+    else:
+        await message.reply('Следуйте, пожалуйста, кнопкам. Я их писал не от скуки.')
 
 
 async def catch_question9(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        answer = message.text
-        data['question1'] = answer
-        await message.answer(f'Ваш ответ: {answer}')
-        # Добавляем ответ в таблицу SQL.
-        if message.chat.id == ADMIN_ID:
-            add_answer(message.chat.id, answer, 9, 'admin', 'data/admin.db')
-        else:
-            add_answer(message.chat.id, answer, 9, 'users', 'data/users.db')
+    if message.text in BUTTONS:
+        async with state.proxy() as data:
+            answer = message.text
+            data['question1'] = answer
+            await message.answer(f'Ваш ответ: {answer}')
+            # Добавляем ответ в таблицу SQL.
+            if message.chat.id == ADMIN_ID:
+                add_answer(message.chat.id, answer, 9, 'admin', 'data/admin.db')
+            else:
+                add_answer(message.chat.id, answer, 9, 'users', 'data/users.db')
+        await FSMUsers.next()
+        await message.answer(QUESTIONS[9], reply_markup=users_reply_buttons)
 
-    await FSMUsers.next()
-    users_reply_buttons = ReplyKeyboardMarkup(resize_keyboard=True)
-    buttons = (el[1] for el in get_all_users('data/users.db'))
-    users_reply_buttons.row(*buttons)
-    await message.answer(QUESTIONS[9], reply_markup=users_reply_buttons)
+    else:
+        await message.reply('Следуйте, пожалуйста, кнопкам. Я их писал не от скуки.')
 
 
 async def catch_question10(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        answer = message.text
-        data['question1'] = answer
-        await message.answer(f'Ваш ответ: {answer}')
-        # Добавляем ответ в таблицу SQL.
-        if message.chat.id == ADMIN_ID:
-            add_answer(message.chat.id, answer, 10, 'admin', 'data/admin.db')
-        else:
-            add_answer(message.chat.id, answer, 10, 'users', 'data/users.db')
+    if message.text in BUTTONS:
+        async with state.proxy() as data:
+            answer = message.text
+            data['question1'] = answer
+            await message.answer(f'Ваш ответ: {answer}')
+            # Добавляем ответ в таблицу SQL.
+            if message.chat.id == ADMIN_ID:
+                add_answer(message.chat.id, answer, 10, 'admin', 'data/admin.db')
+            else:
+                add_answer(message.chat.id, answer, 10, 'users', 'data/users.db')
+        await FSMUsers.next()
+        await message.answer(QUESTIONS[10], reply_markup=users_reply_buttons)
 
-    await FSMUsers.next()
-    users_reply_buttons = ReplyKeyboardMarkup(resize_keyboard=True)
-    buttons = (el[1] for el in get_all_users('data/users.db'))
-    users_reply_buttons.row(*buttons)
-    await message.answer(QUESTIONS[10], reply_markup=users_reply_buttons)
+    else:
+        await message.reply('Следуйте, пожалуйста, кнопкам. Я их писал не от скуки.')
 
 
 async def catch_question11(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        answer = message.text
-        data['question1'] = answer
-        await message.answer(f'Ваш ответ: {answer}')
-        # Добавляем ответ в таблицу SQL.
-        if message.chat.id == ADMIN_ID:
-            add_answer(message.chat.id, answer, 11, 'admin', 'data/admin.db')
-        else:
-            add_answer(message.chat.id, answer, 11, 'users', 'data/users.db')
+    if message.text in BUTTONS:
+        async with state.proxy() as data:
+            answer = message.text
+            data['question1'] = answer
+            await message.answer(f'Ваш ответ: {answer}')
+            # Добавляем ответ в таблицу SQL.
+            if message.chat.id == ADMIN_ID:
+                add_answer(message.chat.id, answer, 11, 'admin', 'data/admin.db')
+            else:
+                add_answer(message.chat.id, answer, 11, 'users', 'data/users.db')
+        await FSMUsers.next()
+        await message.answer(QUESTIONS[11], reply_markup=users_reply_buttons)
 
-    await FSMUsers.next()
-    users_reply_buttons = ReplyKeyboardMarkup(resize_keyboard=True)
-    buttons = (el[1] for el in get_all_users('data/users.db'))
-    users_reply_buttons.row(*buttons)
-    await message.answer(QUESTIONS[11], reply_markup=users_reply_buttons)
+    else:
+        await message.reply('Следуйте, пожалуйста, кнопкам. Я их писал не от скуки.')
 
 
 async def catch_question12(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        answer = message.text
-        data['question1'] = answer
-        await message.answer(f'Ваш ответ: {answer}')
-        # Добавляем ответ в таблицу SQL.
-        if message.chat.id == ADMIN_ID:
-            add_answer(message.chat.id, answer, 12, 'admin', 'data/admin.db')
-        else:
-            add_answer(message.chat.id, answer, 12, 'users', 'data/users.db')
+    if message.text in BUTTONS:
+        async with state.proxy() as data:
+            answer = message.text
+            data['question1'] = answer
+            await message.answer(f'Ваш ответ: {answer}')
+            # Добавляем ответ в таблицу SQL.
+            if message.chat.id == ADMIN_ID:
+                add_answer(message.chat.id, answer, 12, 'admin', 'data/admin.db')
+            else:
+                add_answer(message.chat.id, answer, 12, 'users', 'data/users.db')
+        await FSMUsers.next()
+        await message.answer(QUESTIONS[12], reply_markup=users_reply_buttons)
 
-    await FSMUsers.next()
-    users_reply_buttons = ReplyKeyboardMarkup(resize_keyboard=True)
-    buttons = (el[1] for el in get_all_users('data/users.db'))
-    users_reply_buttons.row(*buttons)
-    await message.answer(QUESTIONS[12], reply_markup=users_reply_buttons)
+    else:
+        await message.reply('Следуйте, пожалуйста, кнопкам. Я их писал не от скуки.')
 
 
 async def catch_question13(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        answer = message.text
-        data['question1'] = answer
-        await message.answer(f'Ваш ответ: {answer}')
-        # Добавляем ответ в таблицу SQL.
-        if message.chat.id == ADMIN_ID:
-            add_answer(message.chat.id, answer, 13, 'admin', 'data/admin.db')
-        else:
-            add_answer(message.chat.id, answer, 13, 'users', 'data/users.db')
+    if message.text in BUTTONS:
+        async with state.proxy() as data:
+            answer = message.text
+            data['question1'] = answer
+            await message.answer(f'Ваш ответ: {answer}')
+            # Добавляем ответ в таблицу SQL.
+            if message.chat.id == ADMIN_ID:
+                add_answer(message.chat.id, answer, 13, 'admin', 'data/admin.db')
+            else:
+                add_answer(message.chat.id, answer, 13, 'users', 'data/users.db')
+        await FSMUsers.next()
+        await message.answer(QUESTIONS[13], reply_markup=users_reply_buttons)
 
-    await FSMUsers.next()
-    users_reply_buttons = ReplyKeyboardMarkup(resize_keyboard=True)
-    buttons = (el[1] for el in get_all_users('data/users.db'))
-    users_reply_buttons.row(*buttons)
-    await message.answer(QUESTIONS[13], reply_markup=users_reply_buttons)
+    else:
+        await message.reply('Следуйте, пожалуйста, кнопкам. Я их писал не от скуки.')
 
 
 async def catch_question14(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        answer = message.text
-        data['question1'] = answer
-        await message.answer(f'Ваш ответ: {answer}')
-        # Добавляем ответ в таблицу SQL.
-        if message.chat.id == ADMIN_ID:
-            add_answer(message.chat.id, answer, 14, 'admin', 'data/admin.db')
-        else:
-            add_answer(message.chat.id, answer, 14, 'users', 'data/users.db')
+    if message.text in BUTTONS:
+        async with state.proxy() as data:
+            answer = message.text
+            data['question1'] = answer
+            await message.answer(f'Ваш ответ: {answer}')
+            # Добавляем ответ в таблицу SQL.
+            if message.chat.id == ADMIN_ID:
+                add_answer(message.chat.id, answer, 14, 'admin', 'data/admin.db')
+            else:
+                add_answer(message.chat.id, answer, 14, 'users', 'data/users.db')
+        await FSMUsers.next()
+        await message.answer(QUESTIONS[14], reply_markup=users_reply_buttons)
 
-    await FSMUsers.next()
-    users_reply_buttons = ReplyKeyboardMarkup(resize_keyboard=True)
-    buttons = (el[1] for el in get_all_users('data/users.db'))
-    users_reply_buttons.row(*buttons)
-    await message.answer(QUESTIONS[14], reply_markup=users_reply_buttons)
+    else:
+        await message.reply('Следуйте, пожалуйста, кнопкам. Я их писал не от скуки.')
 
 
 async def catch_question15(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        answer = message.text
-        data['question1'] = answer
-        await message.answer(f'Ваш ответ: {answer}')
-        # Добавляем ответ в таблицу SQL.
-        if message.chat.id == ADMIN_ID:
-            add_answer(message.chat.id, answer, 15, 'admin', 'data/admin.db')
-        else:
-            add_answer(message.chat.id, answer, 15, 'users', 'data/users.db')
+    if message.text in BUTTONS:
+        async with state.proxy() as data:
+            answer = message.text
+            data['question1'] = answer
+            await message.answer(f'Ваш ответ: {answer}')
+            # Добавляем ответ в таблицу SQL.
+            if message.chat.id == ADMIN_ID:
+                add_answer(message.chat.id, answer, 15, 'admin', 'data/admin.db')
+            else:
+                add_answer(message.chat.id, answer, 15, 'users', 'data/users.db')
+        await FSMUsers.next()
+        await message.answer(QUESTIONS[15], reply_markup=users_reply_buttons)
 
-    await FSMUsers.next()
-    users_reply_buttons = ReplyKeyboardMarkup(resize_keyboard=True)
-    buttons = (el[1] for el in get_all_users('data/users.db'))
-    users_reply_buttons.row(*buttons)
-    await message.answer(QUESTIONS[15], reply_markup=users_reply_buttons)
+    else:
+        await message.reply('Следуйте, пожалуйста, кнопкам. Я их писал не от скуки.')
 
 
 async def catch_question16(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        answer = message.text
-        data['question1'] = answer
-        await message.answer(f'Ваш ответ: {answer}')
-        # Добавляем ответ в таблицу SQL.
-        if message.chat.id == ADMIN_ID:
-            add_answer(message.chat.id, answer, 16, 'admin', 'data/admin.db')
-        else:
-            add_answer(message.chat.id, answer, 16, 'users', 'data/users.db')
+    if message.text in BUTTONS:
+        async with state.proxy() as data:
+            answer = message.text
+            data['question1'] = answer
+            await message.answer(f'Ваш ответ: {answer}')
+            # Добавляем ответ в таблицу SQL.
+            if message.chat.id == ADMIN_ID:
+                add_answer(message.chat.id, answer, 16, 'admin', 'data/admin.db')
+            else:
+                add_answer(message.chat.id, answer, 16, 'users', 'data/users.db')
+        await FSMUsers.next()
+        await message.answer(QUESTIONS[16], reply_markup=users_reply_buttons)
 
-    await FSMUsers.next()
-    users_reply_buttons = ReplyKeyboardMarkup(resize_keyboard=True)
-    buttons = (el[1] for el in get_all_users('data/users.db'))
-    users_reply_buttons.row(*buttons)
-    await message.answer(QUESTIONS[16], reply_markup=users_reply_buttons)
+    else:
+        await message.reply('Следуйте, пожалуйста, кнопкам. Я их писал не от скуки.')
 
 
 async def catch_question17(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        answer = message.text
-        data['question1'] = answer
-        await message.answer(f'Ваш ответ: {answer}')
-        # Добавляем ответ в таблицу SQL.
-        if message.chat.id == ADMIN_ID:
-            add_answer(message.chat.id, answer, 17, 'admin', 'data/admin.db')
-        else:
-            add_answer(message.chat.id, answer, 17, 'users', 'data/users.db')
+    if message.text in BUTTONS:
+        async with state.proxy() as data:
+            answer = message.text
+            data['question1'] = answer
+            await message.answer(f'Ваш ответ: {answer}')
+            # Добавляем ответ в таблицу SQL.
+            if message.chat.id == ADMIN_ID:
+                add_answer(message.chat.id, answer, 17, 'admin', 'data/admin.db')
+            else:
+                add_answer(message.chat.id, answer, 17, 'users', 'data/users.db')
+        await FSMUsers.next()
+        await message.answer(QUESTIONS[17], reply_markup=users_reply_buttons)
 
-    await FSMUsers.next()
-    users_reply_buttons = ReplyKeyboardMarkup(resize_keyboard=True)
-    buttons = (el[1] for el in get_all_users('data/users.db'))
-    users_reply_buttons.row(*buttons)
-    await message.answer(QUESTIONS[17], reply_markup=users_reply_buttons)
-
+    else:
+        await message.reply('Следуйте, пожалуйста, кнопкам. Я их писал не от скуки.')
 
 async def catch_question18(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        answer = message.text
-        data['question1'] = answer
-        await message.answer(f'Ваш ответ: {answer}')
-        # Добавляем ответ в таблицу SQL.
-        if message.chat.id == ADMIN_ID:
-            add_answer(message.chat.id, answer, 18, 'admin', 'data/admin.db')
-        else:
-            add_answer(message.chat.id, answer, 18, 'users', 'data/users.db')
+    if message.text in BUTTONS:
+        async with state.proxy() as data:
+            answer = message.text
+            data['question1'] = answer
+            await message.answer(f'Ваш ответ: {answer}')
+            # Добавляем ответ в таблицу SQL.
+            if message.chat.id == ADMIN_ID:
+                add_answer(message.chat.id, answer, 18, 'admin', 'data/admin.db')
+            else:
+                add_answer(message.chat.id, answer, 18, 'users', 'data/users.db')
+        await FSMUsers.next()
+        await message.answer(QUESTIONS[18], reply_markup=users_reply_buttons)
 
-    await FSMUsers.next()
-    users_reply_buttons = ReplyKeyboardMarkup(resize_keyboard=True)
-    buttons = (el[1] for el in get_all_users('data/users.db'))
-    users_reply_buttons.row(*buttons)
-    await message.answer(QUESTIONS[18], reply_markup=users_reply_buttons)
+    else:
+        await message.reply('Следуйте, пожалуйста, кнопкам. Я их писал не от скуки.')
 
 
 async def catch_question19(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        answer = message.text
-        data['question1'] = answer
-        await message.answer(f'Ваш ответ: {answer}')
-        # Добавляем ответ в таблицу SQL.
-        if message.chat.id == ADMIN_ID:
-            add_answer(message.chat.id, answer, 19, 'admin', 'data/admin.db')
-        else:
-            add_answer(message.chat.id, answer, 19, 'users', 'data/users.db')
+    if message.text in BUTTONS:
+        async with state.proxy() as data:
+            answer = message.text
+            data['question1'] = answer
+            await message.answer(f'Ваш ответ: {answer}')
+            # Добавляем ответ в таблицу SQL.
+            if message.chat.id == ADMIN_ID:
+                add_answer(message.chat.id, answer, 19, 'admin', 'data/admin.db')
+            else:
+                add_answer(message.chat.id, answer, 19, 'users', 'data/users.db')
+        await FSMUsers.next()
+        await message.answer(QUESTIONS[19], reply_markup=users_reply_buttons)
 
-    await FSMUsers.next()
-    users_reply_buttons = ReplyKeyboardMarkup(resize_keyboard=True)
-    buttons = (el[1] for el in get_all_users('data/users.db'))
-    users_reply_buttons.row(*buttons)
-    await message.answer(QUESTIONS[19], reply_markup=users_reply_buttons)
+    else:
+        await message.reply('Следуйте, пожалуйста, кнопкам. Я их писал не от скуки.')
 
 
 async def catch_question20(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        answer = message.text
-        data['question1'] = answer
-        await message.answer(f'Ваш ответ: {answer}')
-        # Добавляем ответ в таблицу SQL.
-        if message.chat.id == ADMIN_ID:
-            add_answer(message.chat.id, answer, 20, 'admin', 'data/admin.db')
-            global ADMIN_FINISH_REPLY, ADMIN_RES
-            ADMIN_FINISH_REPLY = True
-            ADMIN_RES = get_score(message.chat.id, 'admin', 'data/admin.db')[0][2:]
+    if message.text in BUTTONS:
+        async with state.proxy() as data:
+            answer = message.text
+            data['question1'] = answer
+            await message.answer(f'Ваш ответ: {answer}')
+            # Добавляем ответ в таблицу SQL.
+            if message.chat.id == ADMIN_ID:
+                add_answer(message.chat.id, answer, 20, 'admin', 'data/admin.db')
+                global ADMIN_FINISH_REPLY, ADMIN_RES
+                ADMIN_FINISH_REPLY = True
+                ADMIN_RES = get_score(message.chat.id, 'admin', 'data/admin.db')[0][2:]
 
-            await state.finish()
-            await message.answer(
-                'Вопросы закончились. Сейчас будут отвечать второстепенные игроки.\n‼️Игра закончится, когда вы напишете "/stop"',
-                reply_markup=types.ReplyKeyboardRemove())
+                await state.finish()
+                await message.answer(
+                    'Вопросы закончились. Сейчас будут отвечать второстепенные игроки.\n‼️Игра закончится, когда вы напишете "/stop"',
+                    reply_markup=types.ReplyKeyboardRemove())
 
-        else:
-            add_answer(message.chat.id, answer, 20, 'users', 'data/users.db')
-            user = get_score(message.chat.id, 'users', 'data/users.db')[0][2:]
+            else:
+                add_answer(message.chat.id, answer, 20, 'users', 'data/users.db')
+                user = get_score(message.chat.id, 'users', 'data/users.db')[0][2:]
 
-            try:
-                res_score = sum(1 for i in range(len(user)) if ADMIN_RES[i] == user[i])
-            except:
-                print(' > ERROR')
-                res_score = 0
-            await message.answer(f'Супер, вы набрали {res_score}')
-            global WINNER
-            if res_score > WINNER[0]:
-                WINNER = (res_score, message.chat.id, message.chat.first_name)
-            await state.finish()
+                try:
+                    res_score = sum(1 for i in range(len(user)) if ADMIN_RES[i] == user[i])
+                except:
+                    print(' > ERROR')
+                    res_score = 0
+                await message.answer(f'Супер, вы набрали {res_score}')
+                global WINNER
+                if res_score > WINNER[0]:
+                    WINNER = (res_score, message.chat.id, message.chat.first_name)
+                await state.finish()
+
+    else:
+        await message.reply('Следуйте, пожалуйста, кнопкам. Я их писал не от скуки.')
 
 
 async def all_msg_handler(message: types.Message):
@@ -493,8 +507,8 @@ async def all_msg_handler(message: types.Message):
                                    reply_markup=types.ReplyKeyboardRemove())
         await message.answer(f"Игра закончена! Победил - {WINNER[2]}. Совпало ответов: {WINNER[0]}",
                              reply_markup=types.ReplyKeyboardRemove())
-
-    # TODO: добавить повтор через старт
+    elif button_text == '/start':
+        print(' >> Нажали старт')
 
 
 # @dp.callback_query_handler(text=['stop'])

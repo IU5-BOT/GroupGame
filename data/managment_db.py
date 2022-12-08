@@ -68,20 +68,16 @@ def create_table(file_name: str, path: str):
 
 
 def create_user_data(user_id: int, user_name: str, filename: str, path: str):
-    db = sqlite3.connect(path)
-    cursor = db.cursor()
-    if isUser(user_id, path):
-        db.commit()
-        db.close()
+    if isUser(user_id, filename, path):
         return
+
     else:
+        db = sqlite3.connect(path)
+        cursor = db.cursor()
         cursor.execute(
             "INSERT INTO {} VALUES ({}, '{}', Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null)".format(
                 filename, user_id, user_name)
         )
-
-        # cursor.execute(f"INSERT INTO {filename} VALUES ({user_id}, '{user_name}', Null, Null, Null)")
-
         db.commit()
         db.close()
 
@@ -90,22 +86,30 @@ def add_answer(user_id: int, answer_user: str, counter_questions: int, filename:
     db = sqlite3.connect(path)
     cursor = db.cursor()
     res = find_index_of_name(answer_user, 'data/users.db')
-    try:
-        cursor.execute(f"UPDATE {filename} SET q{counter_questions} = {res} WHERE id_user = {user_id}")
-    except:
-        print(' >> ERROR')
-    db.commit()
-    db.close()
+    if res is not None:
+        try:
+            cursor.execute(f"UPDATE {filename} SET q{counter_questions} = {res} WHERE id_user = {user_id}")
+        except:
+            print(f' >> ERROR {add_answer.__name__}')
+        db.commit()
+        db.close()
 
+    else:
+        try:
+            cursor.execute(f"UPDATE {filename} SET q{counter_questions} = 0 WHERE id_user = {user_id}")
+        except:
+            print(f' >> ERROR {add_answer.__name__}')
+        db.commit()
+        db.close()
 
-def isUser(user_id: int, path: str) -> bool:
+def isUser(user_id: int, filename: str, path: str) -> bool:
     db = sqlite3.connect(path)
     cursor = db.cursor()
-    table = 'users'
     try:
-        cursor.execute(f"SELECT id_user FROM {table} WHERE id_user = {user_id}")
+        cursor.execute(f"SELECT id_user FROM {filename} WHERE id_user = {user_id}")
     except:
-        print(' >> ERROR')
+        print(f' >> ERROR {isUser.__name__} {user_id}')
+
     res = cursor.fetchall()
     db.commit()
     db.close()
@@ -119,8 +123,14 @@ def find_index_of_name(name: str, path: str):
     try:
         cursor.execute(f"SELECT id_user FROM {table} WHERE name = '{name}'")
     except:
-        print(' >> ERROR')
-    res = cursor.fetchall()[0][0]
+        print(f' >> ERROR {find_index_of_name.__name__}')
+
+    res = None
+    try:
+        res = cursor.fetchall()[0][0]
+    except:
+        print(f' >> ERROR {find_index_of_name.__name__}. Юзер что-то сделал не так')
+
     db.commit()
     db.close()
     return res
