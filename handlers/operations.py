@@ -1061,7 +1061,7 @@ async def catch_question20(message: types.Message, state: FSMContext):
                 except:
                     print(' > ERROR')
                     res_score = 0
-                await message.answer(f'Супер, вы набрали {res_score}')
+                await message.answer(f'Супер, вы набрали {res_score}', reply_markup=ReplyKeyboardRemove())
                 global WINNER
                 if res_score > WINNER[0]:
                     WINNER = (res_score, message.chat.id, message.chat.first_name)
@@ -1103,6 +1103,7 @@ async def all_msg_handler(message: types.Message):
     button_text = message.text
     if button_text == '/start':
         print(' >> Нажали старт')
+        await message.delete()
     else:
         await message.delete()
 
@@ -1129,8 +1130,8 @@ async def inline_kb_answer_callback_handler(query: types.CallbackQuery):
                                        reply_markup=types.ReplyKeyboardRemove())
                 await bot.send_message(el[0], 'Вы можете начать новую игру!', reply_markup=new_game)
 
-            await query.message.answer('Супер!', reply_markup=types.ReplyKeyboardRemove())
-            await query.message.answer(f"Игра закончена! Победил - {WINNER[2]}. Совпало ответов: {WINNER[0]}",
+            await query.message.answer(f"Игра закончена! Победил - {WINNER[2]}. Совпало ответов: {WINNER[0]}", reply_markup=types.ReplyKeyboardRemove())
+            await query.message.answer('Вы можете начать новую игру!',
                                        reply_markup=new_game)
         RESET_GLOBAL_DATA()
 
