@@ -17,7 +17,7 @@ ADMIN_FINISH_REPLY: bool = False
 ADMIN_ID: int = -1
 ADMIN_RES: list = []
 QUESTIONS = get_random_questions_lst()
-WINNER = (None, None, None)
+WINNER = (-1, -1, None)
 users_reply_buttons = ReplyKeyboardMarkup(resize_keyboard=True)
 BUTTONS: list
 import os
@@ -39,7 +39,7 @@ def RESET_GLOBAL_DATA():
     ADMIN_ID = -1
     ADMIN_RES = []
     QUESTIONS = get_random_questions_lst()
-    WINNER = (None, None, None)
+    WINNER = (-1, -1, None)
     users_reply_buttons = ReplyKeyboardMarkup(resize_keyboard=True)
     BUTTONS = []
 
@@ -1112,7 +1112,7 @@ async def inline_kb_answer_callback_handler(query: types.CallbackQuery):
     answer_data = query.data
     if answer_data == 'stop':
         res = get_all_users('data/users.db')
-        if WINNER == (None, None, None):
+        if WINNER == (-1, -1, None):
             for el in res:
                 await bot.send_message(el[0],
                                        'Игра закончена! Никто так и не закончил ответы на вопросы. Напишите /new_game',
