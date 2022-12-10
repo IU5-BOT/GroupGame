@@ -10,8 +10,11 @@ from data.managment_db import *
 from create_bot import bot, dp
 from aiogram.types import WebAppInfo
 import aiogram.utils.markdown as md
+import threading
 from keyboard.inline_buttons import button_stop_inline, new_game
+import os
 
+QUEUE_STATUS: bool = False
 ADMIN_CREATED: bool = False
 ADMIN_FINISH_REPLY: bool = False
 ADMIN_ID: int = -1
@@ -20,7 +23,6 @@ QUESTIONS = get_random_questions_lst()
 WINNER = (-1, -1, None)
 users_reply_buttons = ReplyKeyboardMarkup(resize_keyboard=True)
 BUTTONS: list
-import os
 
 
 def RESET_GLOBAL_DATA():
@@ -68,23 +70,25 @@ class FSMUsers(StatesGroup):
     question20 = State()
 
 
-async def handler_start(message: types.Message):
-    create_user_data(message.chat.id, message.chat.first_name, 'users', 'data/users.db')
-    text = """Привет! Этот игра на знание друг друга. Вам требуется выбрать свою роль."""
-    await message.answer_photo(
-        photo=open('data/photo.jpg', 'rb'),
-        caption=md.text(
-            md.text(text)
-        )
-    )
-    if len(ADMIN_RES) == 0:
-        count_now = get_count_users('data/users.db')
-        if count_now < 3:
-            markup = InlineKeyboardMarkup()
-            markup.add(InlineKeyboardButton(text="Так что пока почилльте тут:",
-                                            web_app=WebAppInfo(url="https://www.youtube.com/watch?v=H2V-RYIP0Vk")))
-            await message.answer('Игра начнётся, когда будет минимум 3 игрока! Ждите', reply_markup=markup)
+class FSMUsers2(StatesGroup):
+    wait = State()
 
+
+def queue():
+    while True:
+        count_now = get_count_users('data/users.db')
+        # await asyncio.sleep(5)
+        if count_now > 2:
+            global QUEUE_STATUS
+            QUEUE_STATUS = True
+            return
+
+
+async def foo(message: types.Message):
+    print('--')
+    if QUEUE_STATUS:
+        count_now = get_count_users('data/users.db')
+        await message.answer(f'Обнаружено {count_now} чел.')
         while True:
             count_now = get_count_users('data/users.db')
             await asyncio.sleep(5)
@@ -92,12 +96,39 @@ async def handler_start(message: types.Message):
                 await message.answer(f'Обнаружено {count_now} чел.')
                 break
 
-        await FSMUsers.user_role.set()
+    await FSMUsers.user_role.set()
+
+async def handler_start(message: types.Message):
+    if len(ADMIN_RES) == 0:
+        create_user_data(message.chat.id, message.chat.first_name, 'users', 'data/users.db')
+        text = """Привет! Этот игра на знание друг друга. Вам требуется выбрать свою роль."""
+        await message.answer_photo(
+            photo=open('data/photo.jpg', 'rb'),
+            caption=md.text(
+                md.text(text)
+            )
+        )
+        count_now = get_count_users('data/users.db')
+        if count_now < 3:
+            markup = InlineKeyboardMarkup()
+            markup.add(InlineKeyboardButton(text="Так что пока почилльте тут:",
+                                            web_app=WebAppInfo(url="https://www.youtube.com/watch?v=srtyakMrKEk")))
+            await message.answer('Игра начнётся, когда будет минимум 3 игрока! Ждите', reply_markup=markup)
+
+        threading.Thread(target=queue, args=()).start()
+        await FSMUsers2.wait.set()
+
         await message.answer("Выберите роль:", reply_markup=roles_for_user_button)
 
     else:
         # Если игра уже началась и главный закончил отвечать.
-        await message.answer('Игра уже началась!')
+        text = """Привет! Этот игра на знание друг друга. Игра уже началась! Повторите попытку /start чуть позже."""
+        await message.answer_photo(
+            photo=open('data/photo.jpg', 'rb'),
+            caption=md.text(
+                md.text(text)
+            )
+        )
 
 
 async def catch_user_role(message: types.Message, state: FSMContext):
@@ -1130,7 +1161,8 @@ async def inline_kb_answer_callback_handler(query: types.CallbackQuery):
                                        reply_markup=types.ReplyKeyboardRemove())
                 await bot.send_message(el[0], 'Вы можете начать новую игру!', reply_markup=new_game)
 
-            await query.message.answer(f"Игра закончена! Победил - {WINNER[2]}. Совпало ответов: {WINNER[0]}", reply_markup=types.ReplyKeyboardRemove())
+            await query.message.answer(f"Игра закончена! Победил - {WINNER[2]}. Совпало ответов: {WINNER[0]}",
+                                       reply_markup=types.ReplyKeyboardRemove())
             await query.message.answer('Вы можете начать новую игру!',
                                        reply_markup=new_game)
         RESET_GLOBAL_DATA()
@@ -1173,6 +1205,7 @@ async def inline_kb_answer_callback_handler(query: types.CallbackQuery):
 
 def register_handlers(dp_main: Dispatcher):
     dp_main.register_message_handler(handler_start, commands=['start'])
+    dp_main.register_message_handler(foo, state=FSMUsers2.wait)
     dp_main.register_message_handler(catch_user_role, state=FSMUsers.user_role)
     dp_main.register_message_handler(catch_question1, state=FSMUsers.question1)
     dp_main.register_message_handler(catch_question2, state=FSMUsers.question2)
