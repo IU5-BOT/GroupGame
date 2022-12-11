@@ -10,7 +10,6 @@ from data.managment_db import *
 from create_bot import bot, dp
 from aiogram.types import WebAppInfo
 import aiogram.utils.markdown as md
-import threading
 from keyboard.inline_buttons import button_stop_inline, new_game
 import os
 
@@ -70,34 +69,6 @@ class FSMUsers(StatesGroup):
     question20 = State()
 
 
-class FSMUsers2(StatesGroup):
-    wait = State()
-
-
-def queue():
-    while True:
-        count_now = get_count_users('data/users.db')
-        # await asyncio.sleep(5)
-        if count_now > 2:
-            global QUEUE_STATUS
-            QUEUE_STATUS = True
-            return
-
-
-async def foo(message: types.Message):
-    print('--')
-    if QUEUE_STATUS:
-        count_now = get_count_users('data/users.db')
-        await message.answer(f'Обнаружено {count_now} чел.')
-        while True:
-            count_now = get_count_users('data/users.db')
-            await asyncio.sleep(5)
-            if count_now > 2:
-                await message.answer(f'Обнаружено {count_now} чел.')
-                break
-
-    await FSMUsers.user_role.set()
-
 async def handler_start(message: types.Message):
     if len(ADMIN_RES) == 0:
         create_user_data(message.chat.id, message.chat.first_name, 'users', 'data/users.db')
@@ -115,9 +86,14 @@ async def handler_start(message: types.Message):
                                             web_app=WebAppInfo(url="https://www.youtube.com/watch?v=srtyakMrKEk")))
             await message.answer('Игра начнётся, когда будет минимум 3 игрока! Ждите', reply_markup=markup)
 
-        threading.Thread(target=queue, args=()).start()
-        await FSMUsers2.wait.set()
+        while True:
+            count_now = get_count_users('data/users.db')
+            await asyncio.sleep(5)
+            if count_now > 2:
+                await message.answer(f'Обнаружено {count_now} чел.')
+                break
 
+        await FSMUsers.user_role.set()
         await message.answer("Выберите роль:", reply_markup=roles_for_user_button)
 
     else:
@@ -1205,7 +1181,6 @@ async def inline_kb_answer_callback_handler(query: types.CallbackQuery):
 
 def register_handlers(dp_main: Dispatcher):
     dp_main.register_message_handler(handler_start, commands=['start'])
-    dp_main.register_message_handler(foo, state=FSMUsers2.wait)
     dp_main.register_message_handler(catch_user_role, state=FSMUsers.user_role)
     dp_main.register_message_handler(catch_question1, state=FSMUsers.question1)
     dp_main.register_message_handler(catch_question2, state=FSMUsers.question2)
