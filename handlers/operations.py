@@ -1173,7 +1173,7 @@ async def inline_kb_answer_callback_handler(query: types.CallbackQuery):
         else:
             # Если игра уже началась и главный закончил отвечать.
             await query.message.answer('Игра уже началась!')
-
+            
     else:
         text = f'Unexpected callback data {answer_data!r}!'
         await query.message.answer(text)
