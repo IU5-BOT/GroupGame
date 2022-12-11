@@ -88,7 +88,7 @@ async def handler_start(message: types.Message):
 
         while True:
             count_now = get_count_users('data/users.db')
-            await asyncio.sleep(5)
+            await asyncio.sleep(1)
             if count_now > 2:
                 await message.answer(f'Обнаружено {count_now} чел.')
                 break
